@@ -1,0 +1,1 @@
+/Users/angel/finalproject/alzheimer/public/mri/*.jpg filter=lfs diff=lfs merge=lfs -text
