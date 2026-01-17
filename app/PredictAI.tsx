@@ -6,20 +6,10 @@ export default function PredictAI() {
       <div className="font-white block w-300 my-50 mx-20">
         <h1 className="text-4xl font-bold">Predict</h1>
         <div className="">
-              <label style={{
-                  marginTop: "10px",
-                  padding: '8px 16px',
-                  backgroundColor: 'white',
-                  color: 'black',
-                  cursor: 'pointer',
-                  borderRadius: '4px',
-                  display: 'inline-block'
-                }}>
+          <label className="mt-[10px] px-4 py-2 bg-white text-black cursor-pointer rounded inline-block">
           Upload Image
-          <input type="file" style={{ display: 'none' }} />
+          <input type="file" className="hidden" />
         </label>
-
-        
         </div>
       </div>
     </div>

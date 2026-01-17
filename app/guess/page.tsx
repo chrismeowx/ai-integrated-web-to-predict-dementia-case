@@ -5,24 +5,35 @@ import Navbar from "@/app/Navbar";
 import { useState } from "react";
 import axios from "axios";
 
-export default function Home() {  
+export default function Home() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
 
-  const [result, setResult] = useState("");    
-  const [gradcam, setGradcam] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [predicting, setPredicting] = useState(false);
 
-  // HANDLE FILE UPLOAD (AUTO PREDICT)
+  const [result, setResult] = useState("");
+  const [gradcam, setGradcam] = useState(null);
+
+  const [imgNp, setImgNp] = useState(null);
+  const [heatmap, setHeatmap] = useState(null);
+
+  const [aiChoice, setAiChoice] = useState("gemini");
+  const [explanations, setExplanations] = useState({});
+
   const handleFileChange = async (e) => {
     const img = e.target.files[0];
     if (!img) return;
 
     setFile(img);
     setPreview(URL.createObjectURL(img));
+
+    setPredicting(true);
     setResult("");
     setGradcam(null);
-    setLoading(true); // start loading
+    setExplanations({});
+    setImgNp(null);
+    setHeatmap(null);
 
     const formData = new FormData();
     formData.append("file", img);
@@ -34,89 +45,123 @@ export default function Home() {
         { headers: { "Content-Type": "multipart/form-data" } }
       );
 
-      setResult(res.data.class);
+      setResult(res.data.predicted_class);
       setGradcam(res.data.gradcam);
+      setImgNp(res.data.img_np);
+      setHeatmap(res.data.heatmap);
 
     } catch (err) {
       console.error(err);
-      setResult("Error predicting image");
+      alert("Error predicting image");
     }
 
-    setLoading(false); // done loading
+    setPredicting(false);
+  };
+
+  const requestExplanation = async () => {
+    if (!imgNp || !heatmap) return;
+
+    setLoading(true);
+    setExplanations({});
+
+    try {
+      const res = await axios.post("http://localhost:8000/explain", {
+        model: aiChoice,
+        predicted_class: result,
+        img_np: imgNp,
+        heatmap: heatmap
+      });
+
+      setExplanations(res.data);
+
+    } catch (err) {
+      console.error(err);
+      alert("Error generating explanation");
+    }
+
+    setLoading(false);
   };
 
   return (
     <div className="bg-black min-h-screen text-white px-20 py-20">
       <Navbar />
 
-      <div className="mt-10 mb-10">
-        <h1 className="my-3 text-5xl font-bold">Guess with AI</h1>
-        <p className="text-lg max-w-6xl">
-          Upload a brain MRI image in order to use this AI. The AI (powered by Swin Transformer) was trained using{" "}
-          <a href="https://www.kaggle.com/datasets/marcopinamonti/alzheimer-mri-4-classes-dataset" className="underline">
-            this dataset
-          </a>. It will classify the condition and generate a Grad-CAM heatmap showing which area influenced the prediction.
-        </p>
+      <div className="mt-10 mb-5">
+        <h1 className="my-3 text-6xl font-bold">Guess with AI</h1>
+        <p className="text-2xl w-400">You can upload a brain MRI image and the system will predict the dementia level of the uploaded image. It predicts by using a model Swin Transformer trained by Brain MRI dataset with four labels. After predicting, it will generates a Grad-CAM heatmap, and explains the result using Gemini or Mistral, or you can use both of you want to compare the explanation by the two LLMs!</p>
       </div>
 
-      {/* UPLOAD + PREVIEW SECTION (before prediction) */}
       {!gradcam && (
-        <div className="">
+        <div>
           {preview && (
-            <div className="mt-6 w-[700px] p-10 border border-gray-700 shadow-lg gap-10 bg-gray-900 block">
-              <Image
-                src={preview}
-                alt="Uploaded"
-                width={350}
-                height={350}
-                className="border border-gray-600"
-              />
-
-              {loading && (
-                <p className="mt-5 text-lg animate-pulse text-gray-300">
-                  Processing image...
-                </p>
-              )}
-            </div>
+            <Image src={preview} alt="Uploaded" width={350} height={350} className="border border-gray-600"
+            />
           )}
 
-          {/* Upload button — only show if NOT loading and NOT finished */}
-          {!loading && !gradcam && (
-            <div className="flex gap-3 justify mt-10">
-              <label className="p-5 w-[180px] text-center rounded-lg cursor-pointer text-black bg-white hover:bg-black hover:text-white">
-                Upload Image
-                <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-              </label>
-            </div>
+          {predicting && (
+            <p className="mt-5 text-xl animate-pulse text-gray-300">
+              Processing image...
+            </p>
+          )}
+
+          {!predicting && (
+            <label className="mt-10 inline-block p-5 w-[200px] text-center rounded-lg cursor-pointer text-black bg-white hover:bg-gray-300">
+              Upload Image
+              <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+            </label>
           )}
         </div>
       )}
 
-      {/* GRADCAM RESULT SECTION (after prediction) */}
       {gradcam && (
-        <div className="p-10 w-[1100px] h-[580px] border border-gray-700 shadow-lg gap-10 bg-gray-900">
-          <div className="mb-7">
-            <h1 className="font-semibold text-3xl mb-5">Grad-CAM Heatmap</h1>
-            <Image 
-              src={`data:image/png;base64,${gradcam}`}
-              alt="GradCAM"
-              width={300}
-              height={300}
-              className="rounded-lg border border-white"
-            />
+        <div className="mt-10 p-10 w-full border border-gray-700 bg-gray-900">
+
+          <div className="mb-10">
+            <h2 className="font-semibold text-3xl mb-5">Grad-CAM Heatmap</h2>
+            <Image src={`data:image/png;base64,${gradcam}`} alt="GradCAM" width={350} height={350} className="rounded-lg border border-white" />
           </div>
 
-          {result && (
-            <div>
-              <h2 className="font-semibold text-2xl">
-                Prediction: <span className="text-white-300">{result}</span>
-              </h2>
-              <p className="mt-2">The explanation is defined here.</p>
+          <h3 className="font-semibold text-3xl mb-8">
+            Prediction: <span className="text-white">{result}</span>
+          </h3>
+
+          <div className="flex gap-4 mb-8">
+            {["gemini", "mistral", "both"].map((m) => (
+              <button key={m} onClick={() => setAiChoice(m)} className={`px-6 py-3 rounded-lg border ${aiChoice === m ? "bg-white text-black" : "bg-black text-white"}`}>
+                {m.toUpperCase()}
+              </button>
+            ))}
+          </div>
+
+          <button onClick={requestExplanation} disabled={loading} className="px-8 py-4 bg-white text-black rounded-lg hover:bg-gray-300">
+            {loading ? "Generating explanation..." : "Generate Explanation"}
+          </button>
+
+          {Object.keys(explanations).length > 0 && (
+            <div className="mt-12 space-y-10 w-full">
+
+              {explanations.gemini && (
+                <div className="p-8 border border-gray-600 rounded-lg">
+                  <h4 className="text-4xl font-semibold mb-4">Gemini</h4>
+                  <p className="text-2xl leading-relaxed whitespace-pre-line">
+                    {explanations.gemini}
+                  </p>
+                </div>
+              )}
+
+              {explanations.mistral && (
+                <div className="p-8 border border-gray-600 rounded-lg">
+                  <h4 className="text-4xl font-semibold mb-4">Mistral</h4>
+                  <p className="text-2xl leading-relaxed whitespace-pre-line">
+                    {explanations.mistral}
+                  </p>
+                </div>
+              )}
+
             </div>
           )}
         </div>
       )}
-
     </div>
   );
 }
