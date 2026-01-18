@@ -22,9 +22,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==========================
-# GUESS (UPLOAD IMAGE)
-# ==========================
 @app.post("/guess")
 async def guess(file: UploadFile = File(...)):
     if not file.content_type.startswith("image/"):
@@ -43,10 +40,6 @@ async def guess(file: UploadFile = File(...)):
         "heatmap": heatmap.tolist()
     }
 
-
-# ==========================
-# EXPLAIN (FROM GUESS)
-# ==========================
 @app.post("/explain")
 def explain(req: ExplainRequest):
     img_np = np.array(req.img_np, dtype=np.uint8)
@@ -71,7 +64,6 @@ def explain(req: ExplainRequest):
     return result
 
 
-
 @app.post("/quiz-explain")
 def quiz_explain(req: QuizExplainRequest):
     image_path = MRI_DIR / req.image_path
@@ -87,7 +79,6 @@ def quiz_explain(req: QuizExplainRequest):
     _, heatmap, img_np = predict_image_with_gradcam(image)
     gradcam_b64 = generate_gradcam_base64(img_np, heatmap)
 
-    # 🔒 Ground truth
     predicted_class = req.true_label
 
     explanation = explanation_result(
